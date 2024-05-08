@@ -1,0 +1,80 @@
+﻿@page "/login"
+@using CookieAuthentication.Data
+@using CookieAuthentication.Model.Entities
+@using CookieAuthentication.Model.ViewModel
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@inject CookieAuthentication.Data.MyDBContext DB
+@inject NavigationManager Navmanager
+@rendermode InteractiveServer
+
+
+<h3>Login</h3>
+<div class="row">
+    <div class="col-lg-4 pt-4 offset-lg-4 pb-4 border">
+        <EditForm Model="@loginmodel" OnValidSubmit="@Auth" Enhance FormName="LoginForm">
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+            <div class="mb-3 text-center felx-column">
+                <img src="Img/login.png" style="max-height:5rem" />
+                <h3>Login</h3>
+            </div>
+            <div class="mb-3">
+                <label>Felhasználónév:</label>
+                <InputText class="form-control" @bind-Value="loginmodel.Username" placeholder="Username"></InputText>
+                <ValidationMessage For="()=>loginmodel.Username"></ValidationMessage>
+            </div>
+            <div class="mb-3">
+                <label>Jelszó:</label>
+                <InputText class="form-control" @bind-Value="loginmodel.Password" placeholder="Password"></InputText>
+                <ValidationMessage For="()=>loginmodel.Password"></ValidationMessage>
+            </div>
+
+            <div class="mb-3 text-center">
+                <span class="text-danger">@errorMessage</span>
+            </div>
+
+            <div class="mb-3 d-grid gap-3">
+                <button class="btn btn-primary" type="submit">Login</button>
+            </div>
+
+        </EditForm>
+    </div>
+</div>
+
+
+@code {
+    [CascadingParameter]
+    public HttpContext httpcontext{ get; set; }
+
+    [SupplyParameterFromForm]
+    public LoginViewModel loginmodel { get; set; } = new();
+
+    public string? errorMessage; 
+
+    private async Task Auth()
+    {
+        var userAccount = DB.Users.Where(x=>x.UserName == loginmodel.Username).FirstOrDefault();
+
+        if (userAccount is null || userAccount.Password != loginmodel.Password)
+        {
+            errorMessage = "A felhasználó vagy a jelszó nem egyezik!";
+            return;
+        }
+
+        var claims = new List<Claim>()
+        {
+            new Claim(ClaimTypes.Name,loginmodel.Username),
+            new Claim(ClaimTypes.Role, userAccount.Role)
+        };
+
+        var identity = new ClaimsIdentity(claims,CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await httpcontext.SignInAsync(principal);
+
+        Navmanager.NavigateTo("/");
+    }
+}
